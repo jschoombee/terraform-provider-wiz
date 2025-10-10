@@ -813,6 +813,7 @@ type CICDScanPolicy struct {
 	Name        string            `json:"name"`
 	ParamsType  internal.EnumType `json:"paramsType"`
 	Params      interface{}       `json:"params"`
+	Projects    []Project         `json:"projects,omitempty"`
 }
 
 // CICDScanPolicyParamsVulnerabilities struct - updates
@@ -897,6 +898,7 @@ type CreateCICDScanPolicyInput struct {
 	DiskVulnerabilitiesParams *CreateCICDScanPolicyDiskVulnerabilitiesInput `json:"diskVulnerabilitiesParams,omitempty"`
 	DiskSecretsParams         *CreateCICDScanPolicyDiskSecretsInput         `json:"diskSecretsParams,omitempty"`
 	IACParams                 *CreateCICDScanPolicyIACInput                 `json:"iacParams,omitempty"`
+	ProjectIDs                []string                                      `json:"projectIDs,omitempty"`
 }
 
 // CreateCICDScanPolicyDiskVulnerabilitiesInput struct -- updates

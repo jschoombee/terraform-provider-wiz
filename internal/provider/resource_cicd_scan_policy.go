@@ -16,6 +16,99 @@ import (
 	"wiz.io/hashicorp/terraform-provider-wiz/internal/wiz"
 )
 
+type CICDPolicyCustomIgnoreTag interface {
+	SetKey(key string)
+	SetValue(value string)
+	SetIgnoreAllRules(ignoreAllRules *bool)
+	SetRuleIDs(ruleIDs []string)
+}
+
+type CICDPolicyCustomIgnoreTagCreateWrapper struct {
+	*wiz.CICDPolicyCustomIgnoreTagCreateInput
+}
+
+func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetKey(key string) {
+	tag.Key = key
+}
+
+func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetValue(value string) {
+	tag.Value = value
+}
+
+func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
+	tag.IgnoreAllRules = ignoreAllRules
+}
+
+func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetRuleIDs(ruleIDs []string) {
+	tag.RuleIDs = ruleIDs
+}
+
+type CICDPolicyCustomIgnoreTagUpdateWrapper struct {
+	*wiz.CICDPolicyCustomIgnoreTagUpdateInput
+}
+
+func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetKey(key string) {
+	tag.Key = key
+}
+
+func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetValue(value string) {
+	tag.Value = value
+}
+
+func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
+	tag.IgnoreAllRules = ignoreAllRules
+}
+
+func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetRuleIDs(ruleIDs []string) {
+	tag.RuleIDs = ruleIDs
+}
+
+func handleCustomIgnoreTagsGeneric(ctx context.Context, c interface{}, tagType string) []CICDPolicyCustomIgnoreTag {
+	var customTags []CICDPolicyCustomIgnoreTag
+
+	for _, f := range c.(*schema.Set).List() {
+		tflog.Trace(ctx, fmt.Sprintf("f: %T %s", f, f))
+		var customTag CICDPolicyCustomIgnoreTag
+		switch tagType {
+		case "create":
+			customTag = &CICDPolicyCustomIgnoreTagCreateWrapper{
+				CICDPolicyCustomIgnoreTagCreateInput: &wiz.CICDPolicyCustomIgnoreTagCreateInput{},
+			}
+		case "update":
+			customTag = &CICDPolicyCustomIgnoreTagUpdateWrapper{
+				CICDPolicyCustomIgnoreTagUpdateInput: &wiz.CICDPolicyCustomIgnoreTagUpdateInput{},
+			}
+		default:
+			tflog.Warn(ctx, fmt.Sprintf("Unknown tag type: %s", tagType))
+			continue
+		}
+
+		for g, h := range f.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf("g: %T %s", g, g))
+			tflog.Trace(ctx, fmt.Sprintf("h: %T %s", h, h))
+			switch g {
+			case "key":
+				customTag.SetKey(h.(string))
+			case "value":
+				customTag.SetValue(h.(string))
+			case "ignore_all_rules":
+				customTag.SetIgnoreAllRules(utils.ConvertBoolToPointer(h.(bool)))
+			case "rule_ids":
+				customTag.SetRuleIDs(utils.ConvertListToString(h.([]interface{})))
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("unknown custom_ignore_tags param: %s", g))
+			}
+		}
+		tflog.Debug(ctx, fmt.Sprintf("customTag: %s", utils.PrettyPrint(customTag)))
+		customTags = append(customTags, customTag)
+	}
+
+	return customTags
+}
+
+const paramsFormat = "params %T %s"
+const paramsFormatDebug = "a: %T %d"
+
 func resourceWizCICDScanPolicy() *schema.Resource {
 	return &schema.Resource{
 		Description: "Configure CI/CD Scan Policies.",
@@ -38,6 +131,15 @@ func resourceWizCICDScanPolicy() *schema.Resource {
 			"builtin": {
 				Type:     schema.TypeBool,
 				Computed: true,
+			},
+			"project_ids": {
+				Description: "The project IDs that the scan policy applies to.",
+				Type:        schema.TypeList,
+				Optional:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				ForceNew: true, // connect reassign project scoping
 			},
 			"type": {
 				Type:        schema.TypeString,
@@ -221,10 +323,10 @@ func getDiskVulnerabilitiesParams(ctx context.Context, d *schema.ResourceData) *
 	// fetch and walk the structure
 	params := d.Get("disk_vulnerabilities_params").(*schema.Set).List()
 	for _, a := range params {
-		tflog.Trace(ctx, fmt.Sprintf("param: %T %s", a, utils.PrettyPrint(a)))
+		tflog.Trace(ctx, fmt.Sprintf("disk_vulnerabilities_params param: %T %s", a, utils.PrettyPrint(a)))
 		for b, c := range a.(map[string]interface{}) {
-			tflog.Trace(ctx, fmt.Sprintf("b: %T %s", b, b))
-			tflog.Trace(ctx, fmt.Sprintf("c: %T %s", c, c))
+			tflog.Trace(ctx, fmt.Sprintf(logInterfaceType, b, b))
+			tflog.Trace(ctx, fmt.Sprintf("disk_vulnerabilities_params c: %T %s", c, c))
 			switch b {
 			case "severity":
 				output.Severity = c.(string)
@@ -234,7 +336,10 @@ func getDiskVulnerabilitiesParams(ctx context.Context, d *schema.ResourceData) *
 				output.IgnoreUnfixed = c.(bool)
 			case "package_allow_list":
 				output.PackageAllowList = utils.ConvertListToString(c.([]interface{}))
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("unknown parameter: %s", b))
 			}
+
 		}
 	}
 
@@ -252,13 +357,15 @@ func getDiskSecretsParams(ctx context.Context, d *schema.ResourceData) *wiz.Crea
 	for _, a := range params {
 		tflog.Trace(ctx, fmt.Sprintf("param: %T %s", a, utils.PrettyPrint(a)))
 		for b, c := range a.(map[string]interface{}) {
-			tflog.Trace(ctx, fmt.Sprintf("b: %T %s", b, b))
+			tflog.Trace(ctx, fmt.Sprintf(logInterfaceType, b, b))
 			tflog.Trace(ctx, fmt.Sprintf("c: %T %s", c, c))
 			switch b {
 			case "count_threshold":
 				output.CountThreshold = c.(int)
 			case "path_allow_list":
 				output.PathAllowList = utils.ConvertListToString(c.([]interface{}))
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("unknown disk_secrets_params param: %s", b))
 			}
 		}
 	}
@@ -266,8 +373,8 @@ func getDiskSecretsParams(ctx context.Context, d *schema.ResourceData) *wiz.Crea
 	return &output
 }
 
-func getIACParams(ctx context.Context, d *schema.ResourceData) *wiz.CreateCICDScanPolicyIACInput {
-	tflog.Info(ctx, "getIACParams called...")
+func getIACParamsForCreate(ctx context.Context, d *schema.ResourceData) *wiz.CreateCICDScanPolicyIACInput {
+	tflog.Info(ctx, "getIACParamsForCreate called...")
 
 	// return var
 	var output wiz.CreateCICDScanPolicyIACInput
@@ -278,7 +385,7 @@ func getIACParams(ctx context.Context, d *schema.ResourceData) *wiz.CreateCICDSc
 	for _, a := range params {
 		tflog.Trace(ctx, fmt.Sprintf("param: %T %s", a, utils.PrettyPrint(a)))
 		for b, c := range a.(map[string]interface{}) {
-			tflog.Trace(ctx, fmt.Sprintf("b: %T %s", b, b))
+			tflog.Trace(ctx, fmt.Sprintf(logInterfaceType, b, b))
 			tflog.Trace(ctx, fmt.Sprintf("c: %T %s", c, c))
 			switch b {
 			case "severity_threshold":
@@ -292,26 +399,9 @@ func getIACParams(ctx context.Context, d *schema.ResourceData) *wiz.CreateCICDSc
 			case "security_frameworks":
 				output.SecurityFrameworks = utils.ConvertListToString(c.([]interface{}))
 			case "custom_ignore_tags":
-				for _, f := range c.(*schema.Set).List() {
-					tflog.Trace(ctx, fmt.Sprintf("f: %T %s", f, f))
-					customTag := &wiz.CICDPolicyCustomIgnoreTagCreateInput{}
-					for g, h := range f.(map[string]interface{}) {
-						tflog.Trace(ctx, fmt.Sprintf("g: %T %s", g, g))
-						tflog.Trace(ctx, fmt.Sprintf("h: %T %s", h, h))
-						switch g {
-						case "key":
-							customTag.Key = h.(string)
-						case "value":
-							customTag.Value = h.(string)
-						case "rule_ids":
-							customTag.RuleIDs = utils.ConvertListToString(h.([]interface{}))
-						case "ignore_all_rules":
-							customTag.IgnoreAllRules = utils.ConvertBoolToPointer(h.(bool))
-						}
-					}
-					tflog.Debug(ctx, fmt.Sprintf("customTag: %s", utils.PrettyPrint(customTag)))
-					customTags = append(customTags, customTag)
-				}
+				customTags = handleCustomIgnoreTagsCreate(ctx, c)
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("unknown iac_params param: %s", b))
 			}
 		}
 	}
@@ -341,20 +431,28 @@ func resourceWizCICDScanPolicyCreate(ctx context.Context, d *schema.ResourceData
 
 	// populate the graphql variables
 	vars := &wiz.CreateCICDScanPolicyInput{}
-	var policyType string
+
 	vars.Name = d.Get("name").(string)
 	vars.Description = d.Get("description").(string)
-	if d.Get("disk_vulnerabilities_params").(*schema.Set).Len() > 0 {
-		policyType = "CICDScanPolicyParamsVulnerabilities"
+
+	if v, ok := d.GetOk("project_ids"); ok {
+		vars.ProjectIDs = utils.ConvertListToString(v.([]any))
+	}
+
+	policyType, diags := setPolicyType(ctx, d)
+	if len(diags) > 0 {
+		return diags
+	}
+
+	switch policyType {
+	case "CICDScanPolicyParamsVulnerabilities":
 		vars.DiskVulnerabilitiesParams = getDiskVulnerabilitiesParams(ctx, d)
-	}
-	if d.Get("disk_secrets_params").(*schema.Set).Len() > 0 {
-		policyType = "CICDScanPolicyParamsSecrets"
+	case "CICDScanPolicyParamsSecrets":
 		vars.DiskSecretsParams = getDiskSecretsParams(ctx, d)
-	}
-	if d.Get("iac_params").(*schema.Set).Len() > 0 {
-		policyType = "CICDScanPolicyParamsIAC"
-		vars.IACParams = getIACParams(ctx, d)
+	case "CICDScanPolicyParamsIAC":
+		vars.IACParams = getIACParamsForCreate(ctx, d)
+	default:
+		tflog.Error(ctx, fmt.Sprintf("Unknown policy type: %s", policyType))
 	}
 
 	// process the request
@@ -367,142 +465,205 @@ func resourceWizCICDScanPolicyCreate(ctx context.Context, d *schema.ResourceData
 
 	// set the id and computed values
 	d.SetId(data.CreateCICDScanPolicy.ScanPolicy.ID)
-	d.Set("builtin", data.CreateCICDScanPolicy.ScanPolicy.Builtin)
-	d.Set("type", policyType)
+	err := d.Set("builtin", data.CreateCICDScanPolicy.ScanPolicy.Builtin)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	err = d.Set("type", policyType)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	return resourceWizCICDScanPolicyRead(ctx, d, m)
+}
+
+func handleCustomIgnoreTagsCreate(ctx context.Context, c interface{}) []*wiz.CICDPolicyCustomIgnoreTagCreateInput {
+	tags := handleCustomIgnoreTagsGeneric(ctx, c, "create")
+	var customTags []*wiz.CICDPolicyCustomIgnoreTagCreateInput
+	for _, tag := range tags {
+		customTags = append(customTags, tag.(*CICDPolicyCustomIgnoreTagCreateWrapper).CICDPolicyCustomIgnoreTagCreateInput)
+	}
+	return customTags
+}
+
+func handleCustomIgnoreTagsUpdate(ctx context.Context, c interface{}) []*wiz.CICDPolicyCustomIgnoreTagUpdateInput {
+	tags := handleCustomIgnoreTagsGeneric(ctx, c, "update")
+	var customTags []*wiz.CICDPolicyCustomIgnoreTagUpdateInput
+	for _, tag := range tags {
+		customTags = append(customTags, tag.(*CICDPolicyCustomIgnoreTagUpdateWrapper).CICDPolicyCustomIgnoreTagUpdateInput)
+	}
+	return customTags
+}
+
+func handleSecretsParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsSecrets")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsSecrets := &wiz.CICDScanPolicyParamsSecrets{}
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsSecrets); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsSecrets: %s", err))
+		return nil
+	}
+
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsSecrets %T %s",
+			myCICDScanPolicyParamsSecrets,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsSecrets,
+			),
+		),
+	)
+
+	myParams["count_threshold"] = myCICDScanPolicyParamsSecrets.CountThreshold
+
+	var pathAllowList = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsSecrets.PathAllowList {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		pathAllowList = append(pathAllowList, b)
+	}
+	myParams["path_allow_list"] = pathAllowList
+
+	return myParams
+}
+
+func handleVulnerabilitiesParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsVulnerabilities")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsVulnerabilities := &wiz.CICDScanPolicyParamsVulnerabilities{}
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsVulnerabilities); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsVulnerabilities: %s", err))
+		return nil
+	}
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsVulnerabilities %T %s",
+			myCICDScanPolicyParamsVulnerabilities,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsVulnerabilities,
+			),
+		),
+	)
+
+	myParams["ignore_unfixed"] = myCICDScanPolicyParamsVulnerabilities.IgnoreUnfixed
+	myParams["package_count_threshold"] = myCICDScanPolicyParamsVulnerabilities.PackageCountThreshold
+	myParams["severity"] = myCICDScanPolicyParamsVulnerabilities.Severity
+
+	var packageAllowList = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsVulnerabilities.PackageAllowList {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		packageAllowList = append(packageAllowList, b)
+	}
+	myParams["package_allow_list"] = packageAllowList
+
+	return myParams
+}
+
+func handleIACParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsIAC")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsIAC := &wiz.CICDScanPolicyParamsIAC{}
+
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsIAC); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsIAC: %s", err))
+		return nil
+	}
+
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsIAC %T %s",
+			myCICDScanPolicyParamsIAC,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsIAC,
+			),
+		),
+	)
+
+	myParams["count_threshold"] = myCICDScanPolicyParamsIAC.CountThreshold
+	myParams["builtin_ignore_tags_enabled"] = myCICDScanPolicyParamsIAC.BuiltinIgnoreTagsEnabled
+	myParams["severity_threshold"] = myCICDScanPolicyParamsIAC.SeverityThreshold
+
+	var ignoredRules = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.IgnoredRules {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		ignoredRules = append(ignoredRules, b.ID)
+	}
+	myParams["ignored_rules"] = ignoredRules
+
+	var securityFrameWorks = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.SecurityFrameworks {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		securityFrameWorks = append(securityFrameWorks, b.ID)
+	}
+	myParams["security_frameworks"] = securityFrameWorks
+
+	var customIgnoreTags = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.CustomIgnoreTags {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		var customIgnoreTag = make(map[string]interface{}, 0)
+		customIgnoreTag["ignore_all_rules"] = b.IgnoreAllRules
+		customIgnoreTag["key"] = b.Key
+		customIgnoreTag["value"] = b.Value
+		var rules = make([]interface{}, 0)
+		for c, d := range b.Rules {
+			tflog.Debug(ctx, fmt.Sprintf("c: %T %d", c, c))
+			tflog.Debug(ctx, fmt.Sprintf("d: %T %s", d, utils.PrettyPrint(d)))
+			rules = append(rules, d.ID)
+		}
+		customIgnoreTag["rule_ids"] = rules
+		customIgnoreTags = append(customIgnoreTags, customIgnoreTag)
+	}
+	myParams["custom_ignore_tags"] = customIgnoreTags
+	return myParams
+
 }
 
 func flattenScanPolicyParams(ctx context.Context, paramType string, params interface{}) []interface{} {
 	tflog.Info(ctx, "flattenParams called...")
 
 	// initialize the return var
-	var output = make([]interface{}, 0, 0)
+	var output = make([]interface{}, 0)
 
 	// initialize the member
 	var myParams = make(map[string]interface{})
 
 	// log the incoming data
 	tflog.Debug(ctx, fmt.Sprintf("Type %s", paramType))
-	tflog.Trace(ctx, fmt.Sprintf("Params %T %s", params, utils.PrettyPrint(params)))
+	tflog.Trace(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
 
 	// populate the structure
 	switch paramType {
 	case "CICDScanPolicyParamsIAC":
-		tflog.Debug(ctx, "Handling CICDScanPolicyParamsIAC")
-
-		// convert generic params to specific type
-		tflog.Debug(ctx, fmt.Sprintf("params %T %s", params, utils.PrettyPrint(params)))
-		jsonString, _ := json.Marshal(params)
-		myCICDScanPolicyParamsIAC := &wiz.CICDScanPolicyParamsIAC{}
-		json.Unmarshal(jsonString, &myCICDScanPolicyParamsIAC)
-		tflog.Debug(
-			ctx,
-			fmt.Sprintf(
-				"myCICDScanPolicyParamsIAC %T %s",
-				myCICDScanPolicyParamsIAC,
-				utils.PrettyPrint(
-					myCICDScanPolicyParamsIAC,
-				),
-			),
-		)
-
-		myParams["count_threshold"] = myCICDScanPolicyParamsIAC.CountThreshold
-		myParams["builtin_ignore_tags_enabled"] = myCICDScanPolicyParamsIAC.BuiltinIgnoreTagsEnabled
-		myParams["severity_threshold"] = myCICDScanPolicyParamsIAC.SeverityThreshold
-
-		var ignoredRules = make([]interface{}, 0, 0)
-		for a, b := range myCICDScanPolicyParamsIAC.IgnoredRules {
-			tflog.Debug(ctx, fmt.Sprintf("a: %T %d", a, a))
-			tflog.Debug(ctx, fmt.Sprintf("b: %T %s", b, utils.PrettyPrint(b)))
-			ignoredRules = append(ignoredRules, b.ID)
-		}
-		myParams["ignored_rules"] = ignoredRules
-
-		var securityFrameWorks = make([]interface{}, 0, 0)
-		for a, b := range myCICDScanPolicyParamsIAC.SecurityFrameworks {
-			tflog.Debug(ctx, fmt.Sprintf("a: %T %d", a, a))
-			tflog.Debug(ctx, fmt.Sprintf("b: %T %s", b, utils.PrettyPrint(b)))
-			securityFrameWorks = append(securityFrameWorks, b.ID)
-		}
-		myParams["security_frameworks"] = securityFrameWorks
-
-		var customIgnoreTags = make([]interface{}, 0, 0)
-		for a, b := range myCICDScanPolicyParamsIAC.CustomIgnoreTags {
-			tflog.Debug(ctx, fmt.Sprintf("a: %T %d", a, a))
-			tflog.Debug(ctx, fmt.Sprintf("b: %T %s", b, utils.PrettyPrint(b)))
-			var customIgnoreTag = make(map[string]interface{}, 0)
-			customIgnoreTag["ignore_all_rules"] = b.IgnoreAllRules
-			customIgnoreTag["key"] = b.Key
-			customIgnoreTag["value"] = b.Value
-			var rules = make([]interface{}, 0, 0)
-			for c, d := range b.Rules {
-				tflog.Debug(ctx, fmt.Sprintf("c: %T %d", c, c))
-				tflog.Debug(ctx, fmt.Sprintf("d: %T %s", d, utils.PrettyPrint(d)))
-				rules = append(rules, d.ID)
-			}
-			customIgnoreTag["rule_ids"] = rules
-			customIgnoreTags = append(customIgnoreTags, customIgnoreTag)
-		}
-		myParams["custom_ignore_tags"] = customIgnoreTags
+		myParams = handleIACParams(ctx, params)
 	case "CICDScanPolicyParamsSecrets":
-		tflog.Debug(ctx, "Handling CICDScanPolicyParamsSecrets")
-
-		// convert generic params to specific type
-		tflog.Debug(ctx, fmt.Sprintf("params %T %s", params, utils.PrettyPrint(params)))
-		jsonString, _ := json.Marshal(params)
-		myCICDScanPolicyParamsSecrets := &wiz.CICDScanPolicyParamsSecrets{}
-		json.Unmarshal(jsonString, &myCICDScanPolicyParamsSecrets)
-		tflog.Debug(
-			ctx,
-			fmt.Sprintf(
-				"myCICDScanPolicyParamsSecrets %T %s",
-				myCICDScanPolicyParamsSecrets,
-				utils.PrettyPrint(
-					myCICDScanPolicyParamsSecrets,
-				),
-			),
-		)
-
-		myParams["count_threshold"] = myCICDScanPolicyParamsSecrets.CountThreshold
-
-		var pathAllowList = make([]interface{}, 0, 0)
-		for a, b := range myCICDScanPolicyParamsSecrets.PathAllowList {
-			tflog.Debug(ctx, fmt.Sprintf("a: %T %d", a, a))
-			tflog.Debug(ctx, fmt.Sprintf("b: %T %s", b, utils.PrettyPrint(b)))
-			pathAllowList = append(pathAllowList, b)
-		}
-		myParams["path_allow_list"] = pathAllowList
+		myParams = handleSecretsParams(ctx, params)
 	case "CICDScanPolicyParamsVulnerabilities":
 		tflog.Debug(ctx, "Handling CICDScanPolicyParamsVulnerabilities")
-
-		// convert generic params to specific type
-		tflog.Debug(ctx, fmt.Sprintf("params %T %s", params, utils.PrettyPrint(params)))
-		jsonString, _ := json.Marshal(params)
-		myCICDScanPolicyParamsVulnerabilities := &wiz.CICDScanPolicyParamsVulnerabilities{}
-		json.Unmarshal(jsonString, &myCICDScanPolicyParamsVulnerabilities)
-		tflog.Debug(
-			ctx,
-			fmt.Sprintf(
-				"myCICDScanPolicyParamsVulnerabilities %T %s",
-				myCICDScanPolicyParamsVulnerabilities,
-				utils.PrettyPrint(
-					myCICDScanPolicyParamsVulnerabilities,
-				),
-			),
-		)
-
-		myParams["ignore_unfixed"] = myCICDScanPolicyParamsVulnerabilities.IgnoreUnfixed
-		myParams["package_count_threshold"] = myCICDScanPolicyParamsVulnerabilities.PackageCountThreshold
-		myParams["severity"] = myCICDScanPolicyParamsVulnerabilities.Severity
-
-		var packageAllowList = make([]interface{}, 0, 0)
-		for a, b := range myCICDScanPolicyParamsVulnerabilities.PackageAllowList {
-			tflog.Debug(ctx, fmt.Sprintf("a: %T %d", a, a))
-			tflog.Debug(ctx, fmt.Sprintf("b: %T %s", b, utils.PrettyPrint(b)))
-			packageAllowList = append(packageAllowList, b)
-		}
-		myParams["package_allow_list"] = packageAllowList
+		myParams = handleVulnerabilitiesParams(ctx, params)
+	default:
+		tflog.Warn(ctx, fmt.Sprintf("Unknown cicd param type: %s", paramType))
 	}
 
 	output = append(output, myParams)
@@ -534,6 +695,9 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 	        name
 	        description
 	        builtin
+	        projects {
+	          id
+	    }
 	        paramsType: params {
 	            type: __typename
 	        }
@@ -607,20 +771,42 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 		return append(diags, diag.FromErr(err)...)
 	}
 
+	projIDs := make([]string, 0)
+	for _, v := range data.CICDScanPolicy.Projects {
+		projIDs = append(projIDs, v.ID)
+	}
+	if len(projIDs) > 0 {
+		err = d.Set("project_ids", projIDs)
+		if err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+	}
+
 	params := flattenScanPolicyParams(ctx, data.CICDScanPolicy.ParamsType.Type, data.CICDScanPolicy.Params)
 	switch data.CICDScanPolicy.ParamsType.Type {
 	case "CICDScanPolicyParamsIAC":
-		err = d.Set("type", "CICDScanPolicyParamsIAC")
-		err = d.Set("iac_params", params)
+		if err := d.Set("type", "CICDScanPolicyParamsIAC"); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+		if err := d.Set("iac_params", params); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
 	case "CICDScanPolicyParamsSecrets":
-		err = d.Set("type", "CICDScanPolicyParamsSecrets")
-		err = d.Set("disk_secrets_params", params)
+		if err := d.Set("type", "CICDScanPolicyParamsSecrets"); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+		if err := d.Set("disk_secrets_params", params); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
 	case "CICDScanPolicyParamsVulnerabilities":
-		err = d.Set("type", "CICDScanPolicyParamsVulnerabilities")
-		err = d.Set("disk_vulnerabilities_params", params)
-	}
-	if err != nil {
-		return append(diags, diag.FromErr(err)...)
+		if err := d.Set("type", "CICDScanPolicyParamsVulnerabilities"); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+		if err := d.Set("disk_vulnerabilities_params", params); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+	default:
+		tflog.Error(ctx, fmt.Sprintf("Unknown CICDScanPolicy param type: %s", data.CICDScanPolicy.ParamsType.Type))
 	}
 
 	return diags
@@ -629,6 +815,91 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 // UpdateCICDScanPolicy struct
 type UpdateCICDScanPolicy struct {
 	UpdateCICDScanPolicy wiz.UpdateCICDScanPolicyPayload `json:"updateCICDScanPolicy"`
+}
+
+func handleIACParamsUpdate(ctx context.Context, d *schema.ResourceData) *wiz.UpdateCICDScanPolicyIACPatch {
+	tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsIAC")
+	varsType := &wiz.UpdateCICDScanPolicyIACPatch{}
+	varsTypeIgnoreTags := make([]*wiz.CICDPolicyCustomIgnoreTagUpdateInput, 0)
+
+	for _, a := range d.Get("iac_params").(*schema.Set).List() {
+		tflog.Trace(ctx, fmt.Sprintf("iac_params a: (%T) %d", a, a))
+		tflog.Trace(ctx, fmt.Sprintf("iac_params b: (%T) %s", a, utils.PrettyPrint(a)))
+		for c, d := range a.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf("iac_param c: (%T) %s", c, c))
+			tflog.Trace(ctx, fmt.Sprintf("iac_param d: (%T) %s", d, utils.PrettyPrint(d)))
+			switch c {
+			case "count_threshold":
+				varsType.CountThreshold = d.(int)
+			case "severity_threshold":
+				varsType.SeverityThreshold = d.(string)
+			case "builtin_ignore_tags_enabled":
+				varsType.BuiltinIgnoreTagsEnabled = utils.ConvertBoolToPointer(d.(bool))
+			case "ignored_rules":
+				varsType.IgnoredRules = utils.ConvertListToString(d.([]interface{}))
+			case "security_frameworks":
+				varsType.SecurityFrameworks = utils.ConvertListToString(d.([]interface{}))
+			case "custom_ignore_tags":
+				varsTypeIgnoreTags = handleCustomIgnoreTagsUpdate(ctx, d)
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("No valid CICDScanPolicyParamsIAC case found for %s", c))
+			}
+		}
+	}
+	varsType.CustomIgnoreTags = varsTypeIgnoreTags
+	return varsType
+}
+
+func handleSecretsParamsUpdate(ctx context.Context, d *schema.ResourceData) *wiz.UpdateCICDScanPolicyDiskSecretsPatch {
+	tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsSecrets")
+	varsType := &wiz.UpdateCICDScanPolicyDiskSecretsPatch{}
+
+	for _, a := range d.Get("disk_secrets_params").(*schema.Set).List() {
+		tflog.Trace(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Trace(ctx, fmt.Sprintf("disk_secret_params b: (%T) %s", a, utils.PrettyPrint(a)))
+		for c, d := range a.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf("CICDScanPolicyParamsSecrets c: (%T) %s", c, c))
+			tflog.Trace(ctx, fmt.Sprintf("d: (%T) %s", d, utils.PrettyPrint(d)))
+			switch c {
+			case "count_threshold":
+				varsType.CountThreshold = d.(int)
+			case "path_allow_list":
+				varsType.PathAllowList = utils.ConvertListToString(d.([]interface{}))
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("No valid CICDScanPolicyParamsSecrets case found for %s", c))
+			}
+		}
+	}
+
+	return varsType
+}
+
+func handleVulnerabilitiesParamsUpdate(ctx context.Context, d *schema.ResourceData) *wiz.UpdateCICDScanPolicyDiskVulnerabilitiesPatch {
+	tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsVulnerabilities")
+	varsType := &wiz.UpdateCICDScanPolicyDiskVulnerabilitiesPatch{}
+
+	for _, a := range d.Get("disk_vulnerabilities_params").(*schema.Set).List() {
+		tflog.Trace(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Trace(ctx, fmt.Sprintf("b: (%T) %s", a, utils.PrettyPrint(a)))
+		for c, d := range a.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf("CICDScanPolicyParamsVulnerabilities c: (%T) %s", c, c))
+			tflog.Trace(ctx, fmt.Sprintf("CICDScanPolicyParamsVulnerabilities d: (%T) %s", d, utils.PrettyPrint(d)))
+			switch c {
+			case "ignore_unfixed":
+				varsType.IgnoreUnfixed = utils.ConvertBoolToPointer(d.(bool))
+			case "package_allow_list":
+				varsType.PackageAllowList = utils.ConvertListToString(d.([]interface{}))
+			case "package_count_threshold":
+				varsType.PackageCountThreshold = d.(int)
+			case "severity":
+				varsType.Severity = d.(string)
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("No valid CICDScanPolicyParamsVulnerabilities case found for %s", c))
+			}
+		}
+	}
+
+	return varsType
 }
 
 func resourceWizCICDScanPolicyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) (diags diag.Diagnostics) {
@@ -656,120 +927,32 @@ func resourceWizCICDScanPolicyUpdate(ctx context.Context, d *schema.ResourceData
 	vars := &wiz.UpdateCICDScanPolicyInput{}
 	vars.ID = d.Id()
 	if d.HasChange("name") {
+		tflog.Debug(ctx, fmt.Sprintf("Name has changed to %s", d.Get("name").(string)))
 		vars.Patch.Name = d.Get("name").(string)
 	}
 	if d.HasChange("description") {
-		vars.Patch.Name = d.Get("description").(string)
+		tflog.Debug(ctx, fmt.Sprintf("Description has changed to %s", d.Get("description").(string)))
+		vars.Patch.Description = d.Get("description").(string)
 	}
+
 	// we need to evaluate whether the policy type changed before setting the params
-	if d.Get("disk_vulnerabilities_params").(*schema.Set).Len() > 0 {
-		err := d.Set("type", "CICDScanPolicyParamsVulnerabilities")
-		if err != nil {
-			return append(diags, diag.FromErr(err)...)
-		}
-	}
-	if d.Get("disk_secrets_params").(*schema.Set).Len() > 0 {
-		err := d.Set("type", "CICDScanPolicyParamsSecrets")
-		if err != nil {
-			return append(diags, diag.FromErr(err)...)
-		}
-	}
-	if d.Get("iac_params").(*schema.Set).Len() > 0 {
-		err := d.Set("type", "CICDScanPolicyParamsIAC")
-		if err != nil {
-			return append(diags, diag.FromErr(err)...)
-		}
+	_, diags = setPolicyType(ctx, d)
+
+	if len(diags) > 0 {
+		return diags
 	}
 
 	switch d.Get("type") {
 	case "CICDScanPolicyParamsIAC":
 		tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsIAC")
-		varsType := &wiz.UpdateCICDScanPolicyIACPatch{}
-		varsTypeIgnoreTags := make([]*wiz.CICDPolicyCustomIgnoreTagUpdateInput, 0)
-		for a, b := range d.Get("iac_params").(*schema.Set).List() {
-			tflog.Trace(ctx, fmt.Sprintf("a: (%T) %d", a, a))
-			tflog.Trace(ctx, fmt.Sprintf("b: (%T) %s", b, utils.PrettyPrint(b)))
-			for c, d := range b.(map[string]interface{}) {
-				tflog.Trace(ctx, fmt.Sprintf("c: (%T) %s", c, c))
-				tflog.Trace(ctx, fmt.Sprintf("d: (%T) %s", d, utils.PrettyPrint(d)))
-				switch c {
-				case "count_threshold":
-					varsType.CountThreshold = d.(int)
-				case "severity_threshold":
-					varsType.SeverityThreshold = d.(string)
-				case "builtin_ignore_tags_enabled":
-					varsType.BuiltinIgnoreTagsEnabled = utils.ConvertBoolToPointer(d.(bool))
-				case "ignored_rules":
-					varsType.IgnoredRules = utils.ConvertListToString(d.([]interface{}))
-				case "security_frameworks":
-					varsType.SecurityFrameworks = utils.ConvertListToString(d.([]interface{}))
-				case "custom_ignore_tags":
-					for e, f := range d.(*schema.Set).List() {
-						tflog.Trace(ctx, fmt.Sprintf("e: (%T) %d", e, e))
-						tflog.Trace(ctx, fmt.Sprintf("f: (%T) %s", f, utils.PrettyPrint(f)))
-						varsTypeIgnoreTag := &wiz.CICDPolicyCustomIgnoreTagUpdateInput{}
-						for g, h := range f.(map[string]interface{}) {
-							tflog.Trace(ctx, fmt.Sprintf("g: (%T) %s", g, g))
-							tflog.Trace(ctx, fmt.Sprintf("h: (%T) %s", h, utils.PrettyPrint(h)))
-							switch g {
-							case "key":
-								varsTypeIgnoreTag.Key = h.(string)
-							case "value":
-								varsTypeIgnoreTag.Value = h.(string)
-							case "ignore_all_rules":
-								varsTypeIgnoreTag.IgnoreAllRules = utils.ConvertBoolToPointer(h.(bool))
-							case "rule_ids":
-								varsTypeIgnoreTag.RuleIDs = utils.ConvertListToString(h.([]interface{}))
-							}
-						}
-						tflog.Debug(ctx, fmt.Sprintf("varsTypeIgnoreTag: %s", utils.PrettyPrint(varsTypeIgnoreTag)))
-						varsTypeIgnoreTags = append(varsTypeIgnoreTags, varsTypeIgnoreTag)
-					}
-				}
-			}
-		}
-		varsType.CustomIgnoreTags = varsTypeIgnoreTags
-		vars.Patch.IACParams = varsType
+		vars.Patch.IACParams = handleIACParamsUpdate(ctx, d)
 	case "CICDScanPolicyParamsSecrets":
 		tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsSecrets")
-		varsType := &wiz.UpdateCICDScanPolicyDiskSecretsPatch{}
-		for a, b := range d.Get("disk_secrets_params").(*schema.Set).List() {
-			tflog.Trace(ctx, fmt.Sprintf("a: (%T) %d", a, a))
-			tflog.Trace(ctx, fmt.Sprintf("b: (%T) %s", b, utils.PrettyPrint(b)))
-			for c, d := range b.(map[string]interface{}) {
-				tflog.Trace(ctx, fmt.Sprintf("c: (%T) %s", c, c))
-				tflog.Trace(ctx, fmt.Sprintf("d: (%T) %s", d, utils.PrettyPrint(d)))
-				switch c {
-				case "count_threshold":
-					varsType.CountThreshold = d.(int)
-				case "path_allow_list":
-					varsType.PathAllowList = utils.ConvertListToString(d.([]interface{}))
-				}
-			}
-		}
-		vars.Patch.DiskSecretsParams = varsType
+		vars.Patch.DiskSecretsParams = handleSecretsParamsUpdate(ctx, d)
 	case "CICDScanPolicyParamsVulnerabilities":
-		tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsVulnerabilities")
-		varsType := &wiz.UpdateCICDScanPolicyDiskVulnerabilitiesPatch{}
-		for a, b := range d.Get("disk_vulnerabilities_params").(*schema.Set).List() {
-			tflog.Trace(ctx, fmt.Sprintf("a: (%T) %d", a, a))
-			tflog.Trace(ctx, fmt.Sprintf("b: (%T) %s", b, utils.PrettyPrint(b)))
-			for c, d := range b.(map[string]interface{}) {
-				tflog.Trace(ctx, fmt.Sprintf("c: (%T) %s", c, c))
-				tflog.Trace(ctx, fmt.Sprintf("d: (%T) %s", d, utils.PrettyPrint(d)))
-				switch c {
-				case "ignore_unfixed":
-					varsType.IgnoreUnfixed = utils.ConvertBoolToPointer(d.(bool))
-				case "package_allow_list":
-					varsType.PackageAllowList = utils.ConvertListToString(d.([]interface{}))
-				case "package_count_threshold":
-					varsType.PackageCountThreshold = d.(int)
-				case "severity":
-					varsType.Severity = d.(string)
-				}
-			}
-		}
-		vars.Patch.DiskVulnerabilitiesParams = varsType
+		vars.Patch.DiskVulnerabilitiesParams = handleVulnerabilitiesParamsUpdate(ctx, d)
+	default:
+		tflog.Warn(ctx, fmt.Sprintf("No valid case found for %s", d.Get("type")))
 	}
 
 	// process the request
@@ -820,4 +1003,31 @@ func resourceWizCICDScanPolicyDelete(ctx context.Context, d *schema.ResourceData
 	}
 
 	return diags
+}
+
+func setPolicyType(ctx context.Context, d *schema.ResourceData) (string, diag.Diagnostics) {
+	tflog.Debug(ctx, "setPolicyType called...")
+	var diags diag.Diagnostics
+	if d.Get("disk_vulnerabilities_params").(*schema.Set).Len() > 0 {
+		err := d.Set("type", "CICDScanPolicyParamsVulnerabilities")
+		if err != nil {
+			return "", append(diags, diag.FromErr(err)...)
+		}
+		return "CICDScanPolicyParamsVulnerabilities", diags
+	}
+	if d.Get("disk_secrets_params").(*schema.Set).Len() > 0 {
+		err := d.Set("type", "CICDScanPolicyParamsSecrets")
+		if err != nil {
+			return "", append(diags, diag.FromErr(err)...)
+		}
+		return "CICDScanPolicyParamsSecrets", diags
+	}
+	if d.Get("iac_params").(*schema.Set).Len() > 0 {
+		err := d.Set("type", "CICDScanPolicyParamsIAC")
+		if err != nil {
+			return "", append(diags, diag.FromErr(err)...)
+		}
+		return "CICDScanPolicyParamsIAC", diags
+	}
+	return "", diags
 }
