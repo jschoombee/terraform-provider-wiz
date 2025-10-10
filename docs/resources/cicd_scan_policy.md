@@ -88,6 +88,7 @@ resource "wiz_cicd_scan_policy" "vulnerabilities" {
     - Required exactly one of: `[disk_vulnerabilities_params disk_secrets_params iac_params]`. (see [below for nested schema](#nestedblock--disk_vulnerabilities_params))
 - `iac_params` (Block Set, Max: 1) IaC scan parameters.
     - Required exactly one of: `[disk_vulnerabilities_params disk_secrets_params iac_params]`. (see [below for nested schema](#nestedblock--iac_params))
+- `project_ids` (List of String) The project IDs that the scan policy applies to.
 
 ### Read-Only
 

@@ -18,8 +18,8 @@ Use the navigation to the left to read about the available resources.
 terraform {
   required_providers {
     wiz = {
-      source  = "AxtonGrams/wiz"
-      version = "1.0.2"
+      source  = "jschoombee/wiz"
+      version = "0.0.3"
     }
   }
 }
