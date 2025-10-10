@@ -11,6 +11,83 @@ import (
 	"wiz.io/hashicorp/terraform-provider-wiz/internal/wiz"
 )
 
+const (
+	TestScanPolicyID1 = "fd7dd0c6-4953-4b36-bc39-004ec3d870db"
+	TestScanPolicyID2 = "063fb380-9eda-4c08-a31b-9211ee37bd42"
+)
+
+func TestHandleIACParams(t *testing.T) {
+	ctx := context.Background()
+
+	expected := map[string]interface{}{
+		"count_threshold":             3,
+		"builtin_ignore_tags_enabled": false,
+		"severity_threshold":          "CRITICAL",
+		"ignored_rules": []interface{}{
+			TestScanPolicyID1,
+			TestScanPolicyID2,
+		},
+		"security_frameworks": []interface{}{
+			TestScanPolicyID1,
+			TestScanPolicyID2,
+		},
+		"custom_ignore_tags": []interface{}{
+			map[string]interface{}{
+				"ignore_all_rules": true,
+				"key":              "example_key",
+				"value":            "example_value",
+				"rule_ids": []interface{}{
+					"rule1",
+					"rule2",
+				},
+			},
+		},
+	}
+
+	input := &wiz.CICDScanPolicyParamsIAC{
+		BuiltinIgnoreTagsEnabled: false,
+		CountThreshold:           3,
+		SeverityThreshold:        "CRITICAL",
+		IgnoredRules: []*wiz.CloudConfigurationRule{
+			{
+				ID: TestScanPolicyID1,
+			},
+			{
+				ID: TestScanPolicyID2,
+			},
+		},
+		SecurityFrameworks: []*wiz.SecurityFramework{
+			{
+				ID: TestScanPolicyID1,
+			},
+			{
+				ID: TestScanPolicyID2,
+			},
+		},
+		CustomIgnoreTags: []*wiz.CICDPolicyCustomIgnoreTag{
+			{
+				IgnoreAllRules: true,
+				Key:            "example_key",
+				Value:          "example_value",
+				Rules: []*wiz.CloudConfigurationRule{
+					{
+						ID: "rule1",
+					},
+					{
+						ID: "rule2",
+					},
+				},
+			},
+		},
+	}
+
+	params := handleIACParams(ctx, input)
+
+	if !reflect.DeepEqual(params, expected) {
+		t.Fatalf("Expected %v, but got %v", expected, params)
+	}
+}
+
 func TestFlattenScanPolicyParamsIACNoTags(t *testing.T) {
 	ctx := context.Background()
 	expected := []interface{}{
@@ -19,12 +96,12 @@ func TestFlattenScanPolicyParamsIACNoTags(t *testing.T) {
 			"count_threshold":             3,
 			"custom_ignore_tags":          []interface{}{},
 			"ignored_rules": []interface{}{
-				"fd7dd0c6-4953-4b36-bc39-004ec3d870db",
-				"063fb380-9eda-4c08-a31b-9211ee37bd42",
+				TestScanPolicyID1,
+				TestScanPolicyID2,
 			},
 			"security_frameworks": []interface{}{
-				"fd7dd0c6-4953-4b36-bc39-004ec3d870db",
-				"063fb380-9eda-4c08-a31b-9211ee37bd42",
+				TestScanPolicyID1,
+				TestScanPolicyID2,
 			},
 			"severity_threshold": "CRITICAL",
 		},
@@ -35,25 +112,25 @@ func TestFlattenScanPolicyParamsIACNoTags(t *testing.T) {
 		SeverityThreshold:        "CRITICAL",
 		IgnoredRules: []*wiz.CloudConfigurationRule{
 			{
-				ID: "fd7dd0c6-4953-4b36-bc39-004ec3d870db",
+				ID: TestScanPolicyID1,
 			},
 			{
-				ID: "063fb380-9eda-4c08-a31b-9211ee37bd42",
+				ID: TestScanPolicyID2,
 			},
 		},
 		SecurityFrameworks: []*wiz.SecurityFramework{
 			{
-				ID: "fd7dd0c6-4953-4b36-bc39-004ec3d870db",
+				ID: TestScanPolicyID1,
 			},
 			{
-				ID: "063fb380-9eda-4c08-a31b-9211ee37bd42",
+				ID: TestScanPolicyID2,
 			},
 		},
 	}
 	scanPolicyParamsIAC := flattenScanPolicyParams(ctx, "CICDScanPolicyParamsIAC", expanded)
 	if !reflect.DeepEqual(scanPolicyParamsIAC, expected) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			scanPolicyParamsIAC,
 			expected,
 		)
@@ -71,7 +148,7 @@ func TestFlattenScanPolicyParamsIACTags(t *testing.T) {
 					"ignore_all_rules": false,
 					"key":              "testkey1",
 					"rule_ids": []interface{}{
-						"063fb380-9eda-4c08-a31b-9211ee37bd42",
+						TestScanPolicyID2,
 					},
 					"value": "testval1",
 				},
@@ -92,12 +169,12 @@ func TestFlattenScanPolicyParamsIACTags(t *testing.T) {
 				},
 			},
 			"ignored_rules": []interface{}{
-				"fd7dd0c6-4953-4b36-bc39-004ec3d870db",
-				"063fb380-9eda-4c08-a31b-9211ee37bd42",
+				TestScanPolicyID1,
+				TestScanPolicyID2,
 			},
 			"security_frameworks": []interface{}{
-				"fd7dd0c6-4953-4b36-bc39-004ec3d870db",
-				"063fb380-9eda-4c08-a31b-9211ee37bd42",
+				TestScanPolicyID1,
+				TestScanPolicyID2,
 			},
 			"severity_threshold": "CRITICAL",
 		},
@@ -108,18 +185,18 @@ func TestFlattenScanPolicyParamsIACTags(t *testing.T) {
 		SeverityThreshold:        "CRITICAL",
 		IgnoredRules: []*wiz.CloudConfigurationRule{
 			{
-				ID: "fd7dd0c6-4953-4b36-bc39-004ec3d870db",
+				ID: TestScanPolicyID1,
 			},
 			{
-				ID: "063fb380-9eda-4c08-a31b-9211ee37bd42",
+				ID: TestScanPolicyID2,
 			},
 		},
 		SecurityFrameworks: []*wiz.SecurityFramework{
 			{
-				ID: "fd7dd0c6-4953-4b36-bc39-004ec3d870db",
+				ID: TestScanPolicyID1,
 			},
 			{
-				ID: "063fb380-9eda-4c08-a31b-9211ee37bd42",
+				ID: TestScanPolicyID2,
 			},
 		},
 		CustomIgnoreTags: []*wiz.CICDPolicyCustomIgnoreTag{
@@ -129,7 +206,7 @@ func TestFlattenScanPolicyParamsIACTags(t *testing.T) {
 				Value:          "testval1",
 				Rules: []*wiz.CloudConfigurationRule{
 					{
-						ID: "063fb380-9eda-4c08-a31b-9211ee37bd42",
+						ID: TestScanPolicyID2,
 					},
 				},
 			},
@@ -156,7 +233,7 @@ func TestFlattenScanPolicyParamsIACTags(t *testing.T) {
 	scanPolicyParamsIAC := flattenScanPolicyParams(ctx, "CICDScanPolicyParamsIAC", expanded)
 	if !reflect.DeepEqual(scanPolicyParamsIAC, expected) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			scanPolicyParamsIAC,
 			expected,
 		)
@@ -184,7 +261,7 @@ func TestFlattenScanPolicyParamsSecrets(t *testing.T) {
 	scanPolicyParamsSecrets := flattenScanPolicyParams(ctx, "CICDScanPolicyParamsSecrets", expanded)
 	if !reflect.DeepEqual(scanPolicyParamsSecrets, expected) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			scanPolicyParamsSecrets,
 			expected,
 		)
@@ -216,7 +293,7 @@ func TestFlattenScanPolicyParamsVulnerabilitiesTrue(t *testing.T) {
 	scanPolicyParamsVulnerabilities := flattenScanPolicyParams(ctx, "CICDScanPolicyParamsVulnerabilities", expanded)
 	if !reflect.DeepEqual(scanPolicyParamsVulnerabilities, expected) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			scanPolicyParamsVulnerabilities,
 			expected,
 		)
@@ -248,7 +325,7 @@ func TestFlattenScanPolicyParamsVulnerabilitiesFalse(t *testing.T) {
 	scanPolicyParamsVulnerabilities := flattenScanPolicyParams(ctx, "CICDScanPolicyParamsVulnerabilities", expanded)
 	if !reflect.DeepEqual(scanPolicyParamsVulnerabilities, expected) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			scanPolicyParamsVulnerabilities,
 			expected,
 		)
@@ -291,7 +368,7 @@ func TestGetDiskVulnerabilitiesParams(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, cicdParams) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			cicdParams,
 			expected,
 		)
@@ -330,7 +407,7 @@ func TestGetDiskSecretsParams(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, cicdParams) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			cicdParams,
 			expected,
 		)
@@ -399,11 +476,11 @@ func TestGetIACParams(t *testing.T) {
 		},
 	)
 
-	cicdParams := getIACParams(ctx, d)
+	cicdParams := getIACParamsForCreate(ctx, d)
 
 	if !reflect.DeepEqual(expected, cicdParams) {
 		t.Fatalf(
-			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			expectedTestError,
 			cicdParams,
 			expected,
 		)

@@ -14,6 +14,11 @@ import (
 	"wiz.io/hashicorp/terraform-provider-wiz/internal/wiz"
 )
 
+const (
+	logInterfaceType  = "b: %T %s"
+	expectedTestError = "Got:\n\n%#v\n\nExpected:\n\n%#v\n"
+)
+
 // CreateConnector struct
 type CreateConnector struct {
 	CreateConnector wiz.CreateConnectorPayload `json:"createConnector"`
