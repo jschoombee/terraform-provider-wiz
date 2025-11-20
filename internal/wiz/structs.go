@@ -18,6 +18,34 @@ import (
   - Sometimes deviations are required from the Wiz schema definition; please note the deviation in the struct comments
 */
 
+// PolicyLifecycleEnforcementInput for CREATE/UPDATE operations
+type PolicyLifecycleEnforcementInput struct {
+	EnforcementMethod   string                                 `json:"enforcementMethod"`   //enum PolicyLifecycleEnforcementMethod
+	DeploymentLifecycle string                                 `json:"deploymentLifecycle"` //enum PolicyLifecycleEnforcementInput
+	EnforcementConfig   *PolicyLifecycleEnforcementConfigInput `json:"enforcementConfig,omitempty"`
+}
+
+// PolicyLifecycleEnforcementConfigInput for CREATE/UPDATE - nested structure
+type PolicyLifecycleEnforcementConfigInput struct {
+	AdmissionControllerConfig *PolicyLifecycleEnforcementConfigAdmissionControllerInput `json:"admissionControllerConfig,omitempty"`
+}
+
+type PolicyLifecycleEnforcementConfigAdmissionControllerInput struct {
+	EnforceOnScope bool `json:"enforceOnScope"`
+}
+
+// PolicyLifecycleEnforcementOutput for READ operations - matches API response
+type PolicyLifecycleEnforcementOutput struct {
+	EnforcementMethod   string                                  `json:"enforcementMethod"`   //enum PolicyLifecycleEnforcementMethod
+	DeploymentLifecycle string                                  `json:"deploymentLifecycle"` //enum PolicyLifecycleEnforcementInput
+	EnforcementConfig   *PolicyLifecycleEnforcementConfigOutput `json:"enforcementConfig,omitempty"`
+}
+
+// PolicyLifecycleEnforcementConfigOutput for READ - union type resolving to admission controller
+type PolicyLifecycleEnforcementConfigOutput struct {
+	EnforceOnScope *bool `json:"enforceOnScope,omitempty"`
+}
+
 // PageInfo struct
 type PageInfo struct {
 	EndCursor   string `json:"endCursor,omitempty"`
@@ -807,13 +835,14 @@ type DeleteServiceAccountPayload struct {
 
 // CICDScanPolicy struct -- updates -- added paramsType
 type CICDScanPolicy struct {
-	Builtin     bool              `json:"builtin"`
-	Description string            `json:"description,omitempty"`
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	ParamsType  internal.EnumType `json:"paramsType"`
-	Params      interface{}       `json:"params"`
-	Projects    []Project         `json:"projects,omitempty"`
+	Builtin                     bool                               `json:"builtin"`
+	Description                 string                             `json:"description,omitempty"`
+	ID                          string                             `json:"id"`
+	Name                        string                             `json:"name"`
+	ParamsType                  internal.EnumType                  `json:"paramsType"`
+	Params                      interface{}                        `json:"params"`
+	Projects                    []Project                          `json:"projects,omitempty"`
+	PolicyLifecycleEnforcements []PolicyLifecycleEnforcementOutput `json:"policyLifecycleEnforcements,omitempty"`
 }
 
 // CICDScanPolicyParamsVulnerabilities struct - updates
@@ -893,12 +922,14 @@ type CreateCICDScanPolicyPayload struct {
 
 // CreateCICDScanPolicyInput struct -- updates
 type CreateCICDScanPolicyInput struct {
-	Name                      string                                        `json:"name"`
-	Description               string                                        `json:"description,omitempty"`
-	DiskVulnerabilitiesParams *CreateCICDScanPolicyDiskVulnerabilitiesInput `json:"diskVulnerabilitiesParams,omitempty"`
-	DiskSecretsParams         *CreateCICDScanPolicyDiskSecretsInput         `json:"diskSecretsParams,omitempty"`
-	IACParams                 *CreateCICDScanPolicyIACInput                 `json:"iacParams,omitempty"`
-	ProjectIDs                []string                                      `json:"projectIDs,omitempty"`
+	Name                        string                                        `json:"name"`
+	Description                 string                                        `json:"description,omitempty"`
+	DiskVulnerabilitiesParams   *CreateCICDScanPolicyDiskVulnerabilitiesInput `json:"diskVulnerabilitiesParams,omitempty"`
+	DiskSecretsParams           *CreateCICDScanPolicyDiskSecretsInput         `json:"diskSecretsParams,omitempty"`
+	IACParams                   *CreateCICDScanPolicyIACInput                 `json:"iacParams,omitempty"`
+	ProjectIDs                  []string                                      `json:"projectIDs,omitempty"`
+	PolicyLifecycleEnforcements *[]PolicyLifecycleEnforcementInput            `json:"policyLifecycleEnforcements,omitempty"`
+	LifecycleTargets            []string                                      `json:"lifecycleTargets,omitempty"` //enum CICDScanPolicyLifecycleTarget
 }
 
 // CreateCICDScanPolicyDiskVulnerabilitiesInput struct -- updates
@@ -946,11 +977,13 @@ type UpdateCICDScanPolicyInput struct {
 
 // UpdateCICDScanPolicyPatch struct -- updates
 type UpdateCICDScanPolicyPatch struct {
-	Name                      string                                        `json:"name,omitempty"`
-	Description               string                                        `json:"description,omitempty"`
-	DiskVulnerabilitiesParams *UpdateCICDScanPolicyDiskVulnerabilitiesPatch `json:"diskVulnerabilitiesParams,omitempty"`
-	DiskSecretsParams         *UpdateCICDScanPolicyDiskSecretsPatch         `json:"diskSecretsParams,omitempty"`
-	IACParams                 *UpdateCICDScanPolicyIACPatch                 `json:"iacParams,omitempty"`
+	Name                        string                                        `json:"name,omitempty"`
+	Description                 string                                        `json:"description,omitempty"`
+	DiskVulnerabilitiesParams   *UpdateCICDScanPolicyDiskVulnerabilitiesPatch `json:"diskVulnerabilitiesParams,omitempty"`
+	DiskSecretsParams           *UpdateCICDScanPolicyDiskSecretsPatch         `json:"diskSecretsParams,omitempty"`
+	IACParams                   *UpdateCICDScanPolicyIACPatch                 `json:"iacParams,omitempty"`
+	PolicyLifecycleEnforcements *[]PolicyLifecycleEnforcementInput            `json:"policyLifecycleEnforcements,omitempty"`
+	LifecycleTargets            string                                        `json:"lifecycleTargets,omitempty"` //enum CICDScanPolicyLifecycleTarget
 }
 
 // UpdateCICDScanPolicyDiskVulnerabilitiesPatch struct -- updates

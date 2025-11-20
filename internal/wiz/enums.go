@@ -176,6 +176,17 @@ var ServiceAccountType = []string{
 	"FIRST_PARTY",
 }
 
+var PolicyEnforcementMethod = []string{
+	"AUDIT",
+	"BLOCK",
+}
+
+var PolicyEnforcementLifecycle = []string{
+	"ADMISSION_CONTROLLER",
+	"CLI",
+	"CODE",
+}
+
 // DiskScanVulnerabilitySeverity enum
 var DiskScanVulnerabilitySeverity = []string{
 	"INFORMATIONAL",
