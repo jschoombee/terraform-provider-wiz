@@ -88,6 +88,9 @@ resource "wiz_cicd_scan_policy" "vulnerabilities" {
     - Required exactly one of: `[disk_vulnerabilities_params disk_secrets_params iac_params]`. (see [below for nested schema](#nestedblock--disk_vulnerabilities_params))
 - `iac_params` (Block Set, Max: 1) IaC scan parameters.
     - Required exactly one of: `[disk_vulnerabilities_params disk_secrets_params iac_params]`. (see [below for nested schema](#nestedblock--iac_params))
+- `policy_lifecycle_enforcements` (Block Set) Policy enforcement method by deployment lifecycle.
+
+You must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle. (see [below for nested schema](#nestedblock--policy_lifecycle_enforcements))
 - `project_ids` (List of String) The project IDs that the scan policy applies to.
 
 ### Read-Only
@@ -158,3 +161,38 @@ Optional:
 
 - `ignore_all_rules` (Boolean)
 - `rule_ids` (List of String)
+
+
+
+<a id="nestedblock--policy_lifecycle_enforcements"></a>
+### Nested Schema for `policy_lifecycle_enforcements`
+
+Required:
+
+- `deployment_lifecycle` (String) Policy deployment lifecycle.
+    - Allowed values: 
+        - ADMISSION_CONTROLLER
+        - CLI
+        - CODE
+- `enforcement_method` (String) Policy enforcement method.
+    - Allowed values: 
+        - AUDIT
+        - BLOCK
+
+Optional:
+
+- `enforcement_config` (Block Set, Max: 1) Policy enforcement configuration for specific deployment lifecycle types. (see [below for nested schema](#nestedblock--policy_lifecycle_enforcements--enforcement_config))
+
+<a id="nestedblock--policy_lifecycle_enforcements--enforcement_config"></a>
+### Nested Schema for `policy_lifecycle_enforcements.enforcement_config`
+
+Optional:
+
+- `admission_controller_config` (Block Set, Max: 1) Admission controller specific enforcement configuration. Only applicable when deployment_lifecycle is ADMISSION_CONTROLLER. (see [below for nested schema](#nestedblock--policy_lifecycle_enforcements--enforcement_config--admission_controller_config))
+
+<a id="nestedblock--policy_lifecycle_enforcements--enforcement_config--admission_controller_config"></a>
+### Nested Schema for `policy_lifecycle_enforcements.enforcement_config.admission_controller_config`
+
+Required:
+
+- `enforce_on_scope` (Boolean) Enforce policy on all resources in the scope.
