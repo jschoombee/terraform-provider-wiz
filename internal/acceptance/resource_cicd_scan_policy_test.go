@@ -324,6 +324,69 @@ func TestAccResourceWizCICDScanPolicyWithAdmissionController(t *testing.T) {
 	})
 }
 
+func TestAccResourceWizCICDScanPolicyBackwardCompatibility(t *testing.T) {
+	rName := acctest.RandomWithPrefix(ResourcePrefix)
+	description := "terraform-test backward compatibility - no policy lifecycle enforcements"
+	projectID := os.Getenv("WIZ_PROJECT_ID")
+
+	resource.UnitTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t, TestCase(TcCICDScanPolicy)) },
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testResourceWizCICDScanPolicyBackwardCompatibility(rName, description, projectID),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(
+						resourceWizCICDScanPolicy,
+						"name",
+						rName,
+					),
+					resource.TestCheckResourceAttr(
+						resourceWizCICDScanPolicy,
+						"description",
+						description,
+					),
+					resource.TestCheckTypeSetElemAttr(
+						resourceWizCICDScanPolicy,
+						"project_ids.*",
+						projectID,
+					),
+					// Verify that API defaults are applied when no policy_lifecycle_enforcements specified
+					resource.TestCheckResourceAttr(
+						resourceWizCICDScanPolicy,
+						"policy_lifecycle_enforcements.#",
+						"3",
+					),
+					resource.TestCheckTypeSetElemNestedAttrs(
+						resourceWizCICDScanPolicy,
+						"policy_lifecycle_enforcements.*",
+						map[string]string{
+							"deployment_lifecycle": "CLI",
+							"enforcement_method":   "AUDIT",
+						},
+					),
+					resource.TestCheckTypeSetElemNestedAttrs(
+						resourceWizCICDScanPolicy,
+						"policy_lifecycle_enforcements.*",
+						map[string]string{
+							"deployment_lifecycle": "CODE",
+							"enforcement_method":   "AUDIT",
+						},
+					),
+					resource.TestCheckTypeSetElemNestedAttrs(
+						resourceWizCICDScanPolicy,
+						"policy_lifecycle_enforcements.*",
+						map[string]string{
+							"deployment_lifecycle": "ADMISSION_CONTROLLER",
+							"enforcement_method":   "AUDIT",
+						},
+					),
+				),
+			},
+		},
+	})
+}
+
 func testResourceWizCICDScanPolicyBasic(rName string, description string, projectID string) string {
 	return fmt.Sprintf(`
 resource "wiz_cicd_scan_policy" "foo" {
@@ -562,6 +625,25 @@ resource "wiz_cicd_scan_policy" "foo" {
     count_threshold             = 3
     severity_threshold          = "CRITICAL"
     builtin_ignore_tags_enabled = false
+  }
+}
+`, rName, description, projectID)
+}
+
+func testResourceWizCICDScanPolicyBackwardCompatibility(rName string, description string, projectID string) string {
+	return fmt.Sprintf(`
+resource "wiz_cicd_scan_policy" "foo" {
+  name        = "%s"
+  description = "%s"
+  project_ids = [ "%s" ]
+
+  iac_params {
+    count_threshold             = 5
+    severity_threshold          = "HIGH"
+    builtin_ignore_tags_enabled = true
+    ignored_rules = [
+      "fd7dd0c6-4953-4b36-bc39-004ec3d870db",
+    ]
   }
 }
 `, rName, description, projectID)

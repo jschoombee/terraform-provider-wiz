@@ -311,8 +311,9 @@ func resourceWizCICDScanPolicy() *schema.Resource {
 			},
 			"policy_lifecycle_enforcements": {
 				Type:        schema.TypeSet,
-				Description: "Policy enforcement method by deployment lifecycle.\n\nYou must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle.",
+				Description: "Policy enforcement method by deployment lifecycle.\n\nYou must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle.\n\nIf not specified, the API will apply default enforcement settings for all deployment lifecycles.",
 				Optional:    true,
+				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"deployment_lifecycle": {

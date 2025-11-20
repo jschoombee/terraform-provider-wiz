@@ -90,7 +90,9 @@ resource "wiz_cicd_scan_policy" "vulnerabilities" {
     - Required exactly one of: `[disk_vulnerabilities_params disk_secrets_params iac_params]`. (see [below for nested schema](#nestedblock--iac_params))
 - `policy_lifecycle_enforcements` (Block Set) Policy enforcement method by deployment lifecycle.
 
-You must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle. (see [below for nested schema](#nestedblock--policy_lifecycle_enforcements))
+You must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle.
+
+If not specified, the API will apply default enforcement settings for all deployment lifecycles. (see [below for nested schema](#nestedblock--policy_lifecycle_enforcements))
 - `project_ids` (List of String) The project IDs that the scan policy applies to.
 
 ### Read-Only
