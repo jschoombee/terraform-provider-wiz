@@ -176,11 +176,13 @@ var ServiceAccountType = []string{
 	"FIRST_PARTY",
 }
 
+// PolicyEnforcementMethod enum values for policy enforcement methods
 var PolicyEnforcementMethod = []string{
 	"AUDIT",
 	"BLOCK",
 }
 
+// PolicyEnforcementLifecycle enum values for policy enforcement deployment lifecycles
 var PolicyEnforcementLifecycle = []string{
 	"ADMISSION_CONTROLLER",
 	"CLI",

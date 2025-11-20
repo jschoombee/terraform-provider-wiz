@@ -16,6 +16,7 @@ import (
 	"wiz.io/hashicorp/terraform-provider-wiz/internal/wiz"
 )
 
+// CICDPolicyCustomIgnoreTag interface for setting custom ignore tag properties
 type CICDPolicyCustomIgnoreTag interface {
 	SetKey(key string)
 	SetValue(value string)
@@ -23,42 +24,52 @@ type CICDPolicyCustomIgnoreTag interface {
 	SetRuleIDs(ruleIDs []string)
 }
 
+// CICDPolicyCustomIgnoreTagCreateWrapper wraps the create input for custom ignore tags
 type CICDPolicyCustomIgnoreTagCreateWrapper struct {
 	*wiz.CICDPolicyCustomIgnoreTagCreateInput
 }
 
+// SetKey sets the key for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetKey(key string) {
 	tag.Key = key
 }
 
+// SetValue sets the value for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetValue(value string) {
 	tag.Value = value
 }
 
+// SetIgnoreAllRules sets whether to ignore all rules for this tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
 	tag.IgnoreAllRules = ignoreAllRules
 }
 
+// SetRuleIDs sets the specific rule IDs to ignore for this tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetRuleIDs(ruleIDs []string) {
 	tag.RuleIDs = ruleIDs
 }
 
+// CICDPolicyCustomIgnoreTagUpdateWrapper wraps the update input for custom ignore tags
 type CICDPolicyCustomIgnoreTagUpdateWrapper struct {
 	*wiz.CICDPolicyCustomIgnoreTagUpdateInput
 }
 
+// SetKey sets the key for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetKey(key string) {
 	tag.Key = key
 }
 
+// SetValue sets the value for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetValue(value string) {
 	tag.Value = value
 }
 
+// SetIgnoreAllRules sets whether to ignore all rules for this tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
 	tag.IgnoreAllRules = ignoreAllRules
 }
 
+// SetRuleIDs sets the specific rule IDs to ignore for this tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetRuleIDs(ruleIDs []string) {
 	tag.RuleIDs = ruleIDs
 }

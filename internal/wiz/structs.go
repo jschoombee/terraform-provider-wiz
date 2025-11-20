@@ -30,6 +30,7 @@ type PolicyLifecycleEnforcementConfigInput struct {
 	AdmissionControllerConfig *PolicyLifecycleEnforcementConfigAdmissionControllerInput `json:"admissionControllerConfig,omitempty"`
 }
 
+// PolicyLifecycleEnforcementConfigAdmissionControllerInput represents admission controller configuration for policy lifecycle enforcement
 type PolicyLifecycleEnforcementConfigAdmissionControllerInput struct {
 	EnforceOnScope bool `json:"enforceOnScope"`
 }
