@@ -30,5 +30,5 @@ const (
 	// TcSAMLGroupMapping test case
 	TcSAMLGroupMapping TestCase = "SAML_GROUP_MAPPING"
 	// TcCICDScanPolicy test case
-	TcCICDScanPolicy   TestCase = "CICD_SCAN_POLICY"
+	TcCICDScanPolicy TestCase = "CICD_SCAN_POLICY"
 )
