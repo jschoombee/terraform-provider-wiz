@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 5
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -25,7 +25,7 @@ jobs:
     name: go-lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-go@v5
       with:
         go-version-file: 'go.mod'
@@ -36,7 +36,7 @@ jobs:
     name: go-fmt
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-go@v5
       with:
         go-version-file: 'go.mod'
@@ -47,7 +47,7 @@ jobs:
     name: go-imports
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-go@v5
       with:
         go-version-file: 'go.mod'
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
