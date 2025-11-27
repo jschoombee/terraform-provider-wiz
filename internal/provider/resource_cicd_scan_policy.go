@@ -16,6 +16,7 @@ import (
 	"wiz.io/hashicorp/terraform-provider-wiz/internal/wiz"
 )
 
+// CICDPolicyCustomIgnoreTag interface for setting custom ignore tag properties
 type CICDPolicyCustomIgnoreTag interface {
 	SetKey(key string)
 	SetValue(value string)
@@ -23,42 +24,52 @@ type CICDPolicyCustomIgnoreTag interface {
 	SetRuleIDs(ruleIDs []string)
 }
 
+// CICDPolicyCustomIgnoreTagCreateWrapper wraps the create input for custom ignore tags
 type CICDPolicyCustomIgnoreTagCreateWrapper struct {
 	*wiz.CICDPolicyCustomIgnoreTagCreateInput
 }
 
+// SetKey sets the key for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetKey(key string) {
 	tag.Key = key
 }
 
+// SetValue sets the value for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetValue(value string) {
 	tag.Value = value
 }
 
+// SetIgnoreAllRules sets whether to ignore all rules for this tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
 	tag.IgnoreAllRules = ignoreAllRules
 }
 
+// SetRuleIDs sets the specific rule IDs to ignore for this tag
 func (tag *CICDPolicyCustomIgnoreTagCreateWrapper) SetRuleIDs(ruleIDs []string) {
 	tag.RuleIDs = ruleIDs
 }
 
+// CICDPolicyCustomIgnoreTagUpdateWrapper wraps the update input for custom ignore tags
 type CICDPolicyCustomIgnoreTagUpdateWrapper struct {
 	*wiz.CICDPolicyCustomIgnoreTagUpdateInput
 }
 
+// SetKey sets the key for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetKey(key string) {
 	tag.Key = key
 }
 
+// SetValue sets the value for the custom ignore tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetValue(value string) {
 	tag.Value = value
 }
 
+// SetIgnoreAllRules sets whether to ignore all rules for this tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetIgnoreAllRules(ignoreAllRules *bool) {
 	tag.IgnoreAllRules = ignoreAllRules
 }
 
+// SetRuleIDs sets the specific rule IDs to ignore for this tag
 func (tag *CICDPolicyCustomIgnoreTagUpdateWrapper) SetRuleIDs(ruleIDs []string) {
 	tag.RuleIDs = ruleIDs
 }
@@ -298,6 +309,73 @@ func resourceWizCICDScanPolicy() *schema.Resource {
 					},
 				},
 			},
+			"policy_lifecycle_enforcements": {
+				Type:        schema.TypeSet,
+				Description: "Policy enforcement method by deployment lifecycle.\n\nYou must create exactly one separate block for each deployment lifecycle type you wish to configure. For example, establish one block for the CLI deployment lifecycle and/or one for the ADMISSION_CONTROLLER deployment lifecycle.\n\nIf not specified, the API will apply default enforcement settings for all deployment lifecycles.",
+				Optional:    true,
+				Computed:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"deployment_lifecycle": {
+							Type: schema.TypeString,
+							Description: fmt.Sprintf(
+								"Policy deployment lifecycle.\n    - Allowed values: %s",
+								utils.SliceOfStringToMDUList(
+									wiz.PolicyEnforcementLifecycle,
+								),
+							),
+							Required: true,
+							ValidateDiagFunc: validation.ToDiagFunc(
+								validation.StringInSlice(
+									wiz.PolicyEnforcementLifecycle,
+									false,
+								),
+							),
+						},
+						"enforcement_method": {
+							Type: schema.TypeString,
+							Description: fmt.Sprintf(
+								"Policy enforcement method.\n    - Allowed values: %s",
+								utils.SliceOfStringToMDUList(
+									wiz.PolicyEnforcementMethod,
+								),
+							),
+							Required: true,
+							ValidateDiagFunc: validation.ToDiagFunc(
+								validation.StringInSlice(
+									wiz.PolicyEnforcementMethod,
+									false,
+								),
+							),
+						},
+						"enforcement_config": {
+							Type:        schema.TypeSet,
+							Description: "Policy enforcement configuration for specific deployment lifecycle types.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"admission_controller_config": {
+										Type:        schema.TypeSet,
+										Description: "Admission controller specific enforcement configuration. Only applicable when deployment_lifecycle is ADMISSION_CONTROLLER.",
+										Optional:    true,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"enforce_on_scope": {
+													Type:        schema.TypeBool,
+													Description: "Enforce policy on all resources in the scope.",
+													Required:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		CreateContext: resourceWizCICDScanPolicyCreate,
 		ReadContext:   resourceWizCICDScanPolicyRead,
@@ -373,6 +451,76 @@ func getDiskSecretsParams(ctx context.Context, d *schema.ResourceData) *wiz.Crea
 	return &output
 }
 
+func handleEnforcementConfig(ctx context.Context, configSet *schema.Set) *wiz.PolicyLifecycleEnforcementConfigInput {
+	if configSet.Len() == 0 {
+		return nil
+	}
+
+	configList := configSet.List()
+	if len(configList) == 0 {
+		return nil
+	}
+
+	configItem := configList[0].(map[string]interface{})
+	config := &wiz.PolicyLifecycleEnforcementConfigInput{}
+
+	for key, value := range configItem {
+		switch key {
+		case "admission_controller_config":
+			if admissionSet, ok := value.(*schema.Set); ok && admissionSet.Len() > 0 {
+				admissionList := admissionSet.List()
+				if len(admissionList) > 0 {
+					admissionConfig := admissionList[0].(map[string]interface{})
+					config.AdmissionControllerConfig = &wiz.PolicyLifecycleEnforcementConfigAdmissionControllerInput{
+						EnforceOnScope: admissionConfig["enforce_on_scope"].(bool),
+					}
+				}
+			}
+		default:
+			tflog.Warn(ctx, fmt.Sprintf("unknown enforcement_config param: %s", key))
+		}
+	}
+
+	return config
+}
+
+func getPolicyLifecycleEnforcementsForCreate(ctx context.Context, d *schema.ResourceData) []wiz.PolicyLifecycleEnforcementInput {
+	tflog.Info(ctx, "getPolicyLifecycleEnforcementsForCreate called...")
+
+	var enforcements []wiz.PolicyLifecycleEnforcementInput
+
+	// fetch and walk the structure
+	params := d.Get("policy_lifecycle_enforcements").(*schema.Set).List()
+	for _, a := range params {
+		tflog.Trace(ctx, fmt.Sprintf("policy_lifecycle_enforcements param: %T %s", a, utils.PrettyPrint(a)))
+
+		enforcement := wiz.PolicyLifecycleEnforcementInput{}
+
+		for b, c := range a.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf(logInterfaceType, b, b))
+			tflog.Trace(ctx, fmt.Sprintf("policy_lifecycle_enforcements c: %T %s", c, c))
+			switch b {
+			case "deployment_lifecycle":
+				enforcement.DeploymentLifecycle = c.(string)
+			case "enforcement_method":
+				enforcement.EnforcementMethod = c.(string)
+			case "enforcement_config":
+				// Handle enforcement config if provided
+				if configSet, ok := c.(*schema.Set); ok && configSet.Len() > 0 {
+					enforcement.EnforcementConfig = handleEnforcementConfig(ctx, configSet)
+				}
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("unknown policy_lifecycle_enforcements param: %s", b))
+			}
+		}
+
+		tflog.Debug(ctx, fmt.Sprintf("enforcement: %s", utils.PrettyPrint(enforcement)))
+		enforcements = append(enforcements, enforcement)
+	}
+
+	return enforcements
+}
+
 func getIACParamsForCreate(ctx context.Context, d *schema.ResourceData) *wiz.CreateCICDScanPolicyIACInput {
 	tflog.Info(ctx, "getIACParamsForCreate called...")
 
@@ -437,6 +585,11 @@ func resourceWizCICDScanPolicyCreate(ctx context.Context, d *schema.ResourceData
 
 	if v, ok := d.GetOk("project_ids"); ok {
 		vars.ProjectIDs = utils.ConvertListToString(v.([]any))
+	}
+
+	// Handle policy lifecycle enforcements
+	if enforcements := getPolicyLifecycleEnforcementsForCreate(ctx, d); len(enforcements) > 0 {
+		vars.PolicyLifecycleEnforcements = &enforcements
 	}
 
 	policyType, diags := setPolicyType(ctx, d)
@@ -640,6 +793,74 @@ func handleIACParams(ctx context.Context, params interface{}) map[string]interfa
 
 }
 
+func flattenPolicyLifecycleEnforcements(ctx context.Context, enforcements []wiz.PolicyLifecycleEnforcementOutput) []interface{} {
+	tflog.Info(ctx, "flattenPolicyLifecycleEnforcements called...")
+
+	var output []interface{}
+
+	for _, enforcement := range enforcements {
+		tflog.Trace(ctx, fmt.Sprintf("enforcement: %T %s", enforcement, utils.PrettyPrint(enforcement)))
+
+		enforcementMap := make(map[string]interface{})
+		enforcementMap["deployment_lifecycle"] = enforcement.DeploymentLifecycle
+		enforcementMap["enforcement_method"] = enforcement.EnforcementMethod
+
+		// Handle enforcement_config if present
+		if enforcement.EnforcementConfig != nil {
+			enforcementMap["enforcement_config"] = flattenEnforcementConfigOutput(ctx, enforcement.EnforcementConfig)
+		} else {
+			enforcementMap["enforcement_config"] = []interface{}{}
+		}
+
+		output = append(output, enforcementMap)
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("flattenPolicyLifecycleEnforcements output: %s", utils.PrettyPrint(output)))
+	return output
+}
+
+func flattenEnforcementConfig(ctx context.Context, config *wiz.PolicyLifecycleEnforcementConfigInput) []interface{} {
+	if config == nil {
+		return []interface{}{}
+	}
+
+	configMap := make(map[string]interface{})
+
+	if config.AdmissionControllerConfig != nil {
+		admissionConfig := []interface{}{
+			map[string]interface{}{
+				"enforce_on_scope": config.AdmissionControllerConfig.EnforceOnScope,
+			},
+		}
+		configMap["admission_controller_config"] = admissionConfig
+	} else {
+		configMap["admission_controller_config"] = []interface{}{}
+	}
+
+	return []interface{}{configMap}
+}
+
+func flattenEnforcementConfigOutput(ctx context.Context, config *wiz.PolicyLifecycleEnforcementConfigOutput) []interface{} {
+	if config == nil {
+		return []interface{}{}
+	}
+
+	configMap := make(map[string]interface{})
+
+	if config.EnforceOnScope != nil {
+		admissionConfig := []interface{}{
+			map[string]interface{}{
+				"enforce_on_scope": *config.EnforceOnScope,
+			},
+		}
+		configMap["admission_controller_config"] = admissionConfig
+	} else {
+		configMap["admission_controller_config"] = []interface{}{}
+	}
+
+	return []interface{}{configMap}
+}
+
 func flattenScanPolicyParams(ctx context.Context, paramType string, params interface{}) []interface{} {
 	tflog.Info(ctx, "flattenParams called...")
 
@@ -732,6 +953,15 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 	                }
 	            }
 	        }
+	        policyLifecycleEnforcements {
+	            enforcementMethod
+	            deploymentLifecycle
+	            enforcementConfig {
+	                ... on PolicyLifecycleEnforcementConfigAdmissionController {
+	                    enforceOnScope
+	                }
+	            }
+	        }
 	    }
 	}`
 
@@ -809,6 +1039,19 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 		tflog.Error(ctx, fmt.Sprintf("Unknown CICDScanPolicy param type: %s", data.CICDScanPolicy.ParamsType.Type))
 	}
 
+	// Handle policy lifecycle enforcements
+	if len(data.CICDScanPolicy.PolicyLifecycleEnforcements) > 0 {
+		enforcements := flattenPolicyLifecycleEnforcements(ctx, data.CICDScanPolicy.PolicyLifecycleEnforcements)
+		if err := d.Set("policy_lifecycle_enforcements", enforcements); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+	} else {
+		// Set empty array if no enforcements
+		if err := d.Set("policy_lifecycle_enforcements", []interface{}{}); err != nil {
+			return append(diags, diag.FromErr(err)...)
+		}
+	}
+
 	return diags
 }
 
@@ -874,6 +1117,40 @@ func handleSecretsParamsUpdate(ctx context.Context, d *schema.ResourceData) *wiz
 	return varsType
 }
 
+func handlePolicyLifecycleEnforcementsUpdate(ctx context.Context, d *schema.ResourceData) []wiz.PolicyLifecycleEnforcementInput {
+	tflog.Debug(ctx, "Handling updates for PolicyLifecycleEnforcements")
+
+	var enforcements []wiz.PolicyLifecycleEnforcementInput
+
+	for _, a := range d.Get("policy_lifecycle_enforcements").(*schema.Set).List() {
+		tflog.Trace(ctx, fmt.Sprintf("policy_lifecycle_enforcements a: (%T) %s", a, utils.PrettyPrint(a)))
+
+		enforcement := wiz.PolicyLifecycleEnforcementInput{}
+
+		for c, d := range a.(map[string]interface{}) {
+			tflog.Trace(ctx, fmt.Sprintf("policy_lifecycle_enforcements c: (%T) %s", c, c))
+			tflog.Trace(ctx, fmt.Sprintf("policy_lifecycle_enforcements d: (%T) %s", d, utils.PrettyPrint(d)))
+			switch c {
+			case "deployment_lifecycle":
+				enforcement.DeploymentLifecycle = d.(string)
+			case "enforcement_method":
+				enforcement.EnforcementMethod = d.(string)
+			case "enforcement_config":
+				// Handle enforcement config if provided
+				if configSet, ok := d.(*schema.Set); ok && configSet.Len() > 0 {
+					enforcement.EnforcementConfig = handleEnforcementConfig(ctx, configSet)
+				}
+			default:
+				tflog.Warn(ctx, fmt.Sprintf("No valid PolicyLifecycleEnforcement case found for %s", c))
+			}
+		}
+
+		enforcements = append(enforcements, enforcement)
+	}
+
+	return enforcements
+}
+
 func handleVulnerabilitiesParamsUpdate(ctx context.Context, d *schema.ResourceData) *wiz.UpdateCICDScanPolicyDiskVulnerabilitiesPatch {
 	tflog.Debug(ctx, "Handling updates for CICDScanPolicyParamsVulnerabilities")
 	varsType := &wiz.UpdateCICDScanPolicyDiskVulnerabilitiesPatch{}
@@ -933,6 +1210,13 @@ func resourceWizCICDScanPolicyUpdate(ctx context.Context, d *schema.ResourceData
 	if d.HasChange("description") {
 		tflog.Debug(ctx, fmt.Sprintf("Description has changed to %s", d.Get("description").(string)))
 		vars.Patch.Description = d.Get("description").(string)
+	}
+
+	// Handle policy lifecycle enforcements changes
+	if d.HasChange("policy_lifecycle_enforcements") {
+		tflog.Debug(ctx, "PolicyLifecycleEnforcements have changed")
+		enforcements := handlePolicyLifecycleEnforcementsUpdate(ctx, d)
+		vars.Patch.PolicyLifecycleEnforcements = &enforcements
 	}
 
 	// we need to evaluate whether the policy type changed before setting the params
