@@ -979,9 +979,18 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 		tflog.Info(ctx, "Error from API call, checking if resource was deleted outside Terraform.")
 		if data.CICDScanPolicy.ID == "" {
 			tflog.Debug(ctx, fmt.Sprintf("Response: (%T) %s", data, utils.PrettyPrint(data)))
-			tflog.Info(ctx, "Resource not found, marking as new.")
-			d.SetId("")
-			d.MarkNewResource()
+			// Only clear the ID if this is a standalone read (not called from create).
+			// The Wiz API can return transient errors immediately after resource creation
+			// (HTTP 200 with error body and null data). Clearing the ID in that case
+			// causes Terraform to report "root resource was present, but now absent"
+			// and permanently loses the external-name.
+			if d.Id() == "" {
+				tflog.Info(ctx, "Resource not found, marking as new.")
+				d.SetId("")
+				d.MarkNewResource()
+			} else {
+				tflog.Warn(ctx, fmt.Sprintf("Read failed for existing resource %s, keeping ID to avoid orphaning", d.Id()))
+			}
 			return nil
 		}
 		return diags
