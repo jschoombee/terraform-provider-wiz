@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -627,7 +628,33 @@ func resourceWizCICDScanPolicyCreate(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 
-	return resourceWizCICDScanPolicyRead(ctx, d, m)
+	// Resource was successfully created. Retry the post-create read with backoff to
+	// handle Wiz API eventual consistency under high load (1000s of parallel creates).
+	// The ID is already set above so Crossplane will always persist the external-name
+	// annotation regardless of whether the read succeeds. If all retries fail we return
+	// nil rather than propagating the error: the resource definitively exists in Wiz,
+	// and returning an error here would risk Crossplane not persisting the external-name,
+	// causing a duplicate-create attempt on the next reconcile.
+	resourceID := d.Id()
+	const maxRetries = 4
+	backoff := 2 * time.Second
+	var readDiags diag.Diagnostics
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		readDiags = resourceWizCICDScanPolicyRead(ctx, d, m)
+		if len(readDiags) == 0 {
+			return nil
+		}
+		tflog.Warn(ctx, fmt.Sprintf("Post-create read attempt %d/%d failed for %s: %v", attempt, maxRetries, resourceID, readDiags))
+		if attempt < maxRetries {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+	}
+	// All retries exhausted. The resource exists in Wiz (ID confirmed from create response).
+	// Preserve the ID so Crossplane retains the external-name and can reconcile on next cycle.
+	d.SetId(resourceID)
+	tflog.Warn(ctx, fmt.Sprintf("Post-create read failed after %d attempts for %s; state may be incomplete but resource exists in Wiz. Will reconcile on next cycle.", maxRetries, resourceID))
+	return nil
 }
 
 func handleCustomIgnoreTagsCreate(ctx context.Context, c interface{}) []*wiz.CICDPolicyCustomIgnoreTagCreateInput {
@@ -979,18 +1006,13 @@ func resourceWizCICDScanPolicyRead(ctx context.Context, d *schema.ResourceData, 
 		tflog.Info(ctx, "Error from API call, checking if resource was deleted outside Terraform.")
 		if data.CICDScanPolicy.ID == "" {
 			tflog.Debug(ctx, fmt.Sprintf("Response: (%T) %s", data, utils.PrettyPrint(data)))
-			// Only clear the ID if this is a standalone read (not called from create).
-			// The Wiz API can return transient errors immediately after resource creation
-			// (HTTP 200 with error body and null data). Clearing the ID in that case
-			// causes Terraform to report "root resource was present, but now absent"
-			// and permanently loses the external-name.
-			if d.Id() == "" {
-				tflog.Info(ctx, "Resource not found, marking as new.")
-				d.SetId("")
-				d.MarkNewResource()
-			} else {
-				tflog.Warn(ctx, fmt.Sprintf("Read failed for existing resource %s, keeping ID to avoid orphaning", d.Id()))
-			}
+			// The Wiz API returns HTTP 200 with an error body and null data for transient
+			// errors (e.g. immediately after creation under high load with 1000s of resources).
+			// Clearing the ID here would cause Terraform/Crossplane to lose the external-name
+			// and attempt to recreate the resource, resulting in orphaned duplicates.
+			// Since d.Id() is always set at this point (we returned nil at the top if it wasn't),
+			// we always keep the ID and suppress the error so the next reconcile can retry.
+			tflog.Warn(ctx, fmt.Sprintf("Read returned error with empty response body for resource %s — likely transient, keeping ID to avoid orphaning", d.Id()))
 			return nil
 		}
 		return diags
