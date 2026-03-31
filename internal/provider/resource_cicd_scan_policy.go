@@ -888,6 +888,237 @@ func flattenEnforcementConfigOutput(ctx context.Context, config *wiz.PolicyLifec
 	return []interface{}{configMap}
 }
 
+func handleCustomIgnoreTagsCreate(ctx context.Context, c interface{}) []*wiz.CICDPolicyCustomIgnoreTagCreateInput {
+	tags := handleCustomIgnoreTagsGeneric(ctx, c, "create")
+	var customTags []*wiz.CICDPolicyCustomIgnoreTagCreateInput
+	for _, tag := range tags {
+		customTags = append(customTags, tag.(*CICDPolicyCustomIgnoreTagCreateWrapper).CICDPolicyCustomIgnoreTagCreateInput)
+	}
+	return customTags
+}
+
+func handleCustomIgnoreTagsUpdate(ctx context.Context, c interface{}) []*wiz.CICDPolicyCustomIgnoreTagUpdateInput {
+	tags := handleCustomIgnoreTagsGeneric(ctx, c, "update")
+	var customTags []*wiz.CICDPolicyCustomIgnoreTagUpdateInput
+	for _, tag := range tags {
+		customTags = append(customTags, tag.(*CICDPolicyCustomIgnoreTagUpdateWrapper).CICDPolicyCustomIgnoreTagUpdateInput)
+	}
+	return customTags
+}
+
+func handleSecretsParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsSecrets")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsSecrets := &wiz.CICDScanPolicyParamsSecrets{}
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsSecrets); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsSecrets: %s", err))
+		return nil
+	}
+
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsSecrets %T %s",
+			myCICDScanPolicyParamsSecrets,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsSecrets,
+			),
+		),
+	)
+
+	myParams["count_threshold"] = myCICDScanPolicyParamsSecrets.CountThreshold
+
+	var pathAllowList = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsSecrets.PathAllowList {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		pathAllowList = append(pathAllowList, b)
+	}
+	myParams["path_allow_list"] = pathAllowList
+
+	return myParams
+}
+
+func handleVulnerabilitiesParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsVulnerabilities")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsVulnerabilities := &wiz.CICDScanPolicyParamsVulnerabilities{}
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsVulnerabilities); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsVulnerabilities: %s", err))
+		return nil
+	}
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsVulnerabilities %T %s",
+			myCICDScanPolicyParamsVulnerabilities,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsVulnerabilities,
+			),
+		),
+	)
+
+	myParams["ignore_unfixed"] = myCICDScanPolicyParamsVulnerabilities.IgnoreUnfixed
+	myParams["package_count_threshold"] = myCICDScanPolicyParamsVulnerabilities.PackageCountThreshold
+	myParams["severity"] = myCICDScanPolicyParamsVulnerabilities.Severity
+
+	var packageAllowList = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsVulnerabilities.PackageAllowList {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		packageAllowList = append(packageAllowList, b)
+	}
+	myParams["package_allow_list"] = packageAllowList
+
+	return myParams
+}
+
+func handleIACParams(ctx context.Context, params interface{}) map[string]interface{} {
+	// initialize the member
+	var myParams = make(map[string]interface{})
+	tflog.Debug(ctx, "Handling CICDScanPolicyParamsIAC")
+
+	// convert generic params to specific type
+	tflog.Debug(ctx, fmt.Sprintf(paramsFormat, params, utils.PrettyPrint(params)))
+	jsonString, _ := json.Marshal(params)
+	myCICDScanPolicyParamsIAC := &wiz.CICDScanPolicyParamsIAC{}
+
+	if err := json.Unmarshal(jsonString, &myCICDScanPolicyParamsIAC); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Error unmarshalling CICDScanPolicyParamsIAC: %s", err))
+		return nil
+	}
+
+	tflog.Debug(
+		ctx,
+		fmt.Sprintf(
+			"myCICDScanPolicyParamsIAC %T %s",
+			myCICDScanPolicyParamsIAC,
+			utils.PrettyPrint(
+				myCICDScanPolicyParamsIAC,
+			),
+		),
+	)
+
+	myParams["count_threshold"] = myCICDScanPolicyParamsIAC.CountThreshold
+	myParams["builtin_ignore_tags_enabled"] = myCICDScanPolicyParamsIAC.BuiltinIgnoreTagsEnabled
+	myParams["severity_threshold"] = myCICDScanPolicyParamsIAC.SeverityThreshold
+
+	var ignoredRules = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.IgnoredRules {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		ignoredRules = append(ignoredRules, b.ID)
+	}
+	myParams["ignored_rules"] = ignoredRules
+
+	var securityFrameWorks = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.SecurityFrameworks {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		securityFrameWorks = append(securityFrameWorks, b.ID)
+	}
+	myParams["security_frameworks"] = securityFrameWorks
+
+	var customIgnoreTags = make([]interface{}, 0)
+	for a, b := range myCICDScanPolicyParamsIAC.CustomIgnoreTags {
+		tflog.Debug(ctx, fmt.Sprintf(paramsFormatDebug, a, a))
+		tflog.Debug(ctx, fmt.Sprintf(logInterfaceType, b, utils.PrettyPrint(b)))
+		var customIgnoreTag = make(map[string]interface{}, 0)
+		customIgnoreTag["ignore_all_rules"] = b.IgnoreAllRules
+		customIgnoreTag["key"] = b.Key
+		customIgnoreTag["value"] = b.Value
+		var rules = make([]interface{}, 0)
+		for c, d := range b.Rules {
+			tflog.Debug(ctx, fmt.Sprintf("c: %T %d", c, c))
+			tflog.Debug(ctx, fmt.Sprintf("d: %T %s", d, utils.PrettyPrint(d)))
+			rules = append(rules, d.ID)
+		}
+		customIgnoreTag["rule_ids"] = rules
+		customIgnoreTags = append(customIgnoreTags, customIgnoreTag)
+	}
+	myParams["custom_ignore_tags"] = customIgnoreTags
+	return myParams
+
+}
+
+func flattenPolicyLifecycleEnforcements(ctx context.Context, enforcements []wiz.PolicyLifecycleEnforcementOutput) []interface{} {
+	tflog.Info(ctx, "flattenPolicyLifecycleEnforcements called...")
+
+	var output []interface{}
+
+	for _, enforcement := range enforcements {
+		tflog.Trace(ctx, fmt.Sprintf("enforcement: %T %s", enforcement, utils.PrettyPrint(enforcement)))
+
+		enforcementMap := make(map[string]interface{})
+		enforcementMap["deployment_lifecycle"] = enforcement.DeploymentLifecycle
+		enforcementMap["enforcement_method"] = enforcement.EnforcementMethod
+
+		// Handle enforcement_config if present
+		if enforcement.EnforcementConfig != nil {
+			enforcementMap["enforcement_config"] = flattenEnforcementConfigOutput(ctx, enforcement.EnforcementConfig)
+		} else {
+			enforcementMap["enforcement_config"] = []interface{}{}
+		}
+
+		output = append(output, enforcementMap)
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("flattenPolicyLifecycleEnforcements output: %s", utils.PrettyPrint(output)))
+	return output
+}
+
+func flattenEnforcementConfig(ctx context.Context, config *wiz.PolicyLifecycleEnforcementConfigInput) []interface{} {
+	if config == nil {
+		return []interface{}{}
+	}
+
+	configMap := make(map[string]interface{})
+
+	if config.AdmissionControllerConfig != nil {
+		admissionConfig := []interface{}{
+			map[string]interface{}{
+				"enforce_on_scope": config.AdmissionControllerConfig.EnforceOnScope,
+			},
+		}
+		configMap["admission_controller_config"] = admissionConfig
+	} else {
+		configMap["admission_controller_config"] = []interface{}{}
+	}
+
+	return []interface{}{configMap}
+}
+
+func flattenEnforcementConfigOutput(ctx context.Context, config *wiz.PolicyLifecycleEnforcementConfigOutput) []interface{} {
+	if config == nil {
+		return []interface{}{}
+	}
+
+	configMap := make(map[string]interface{})
+
+	if config.EnforceOnScope != nil {
+		admissionConfig := []interface{}{
+			map[string]interface{}{
+				"enforce_on_scope": *config.EnforceOnScope,
+			},
+		}
+		configMap["admission_controller_config"] = admissionConfig
+	} else {
+		configMap["admission_controller_config"] = []interface{}{}
+	}
+
+	return []interface{}{configMap}
+}
+
 func flattenScanPolicyParams(ctx context.Context, paramType string, params interface{}) []interface{} {
 	tflog.Info(ctx, "flattenParams called...")
 
